@@ -19,10 +19,11 @@ type ButtonOpts = {|
     fundingEligibility : FundingEligibilityType,
     buyerCountry? : ?$Values<typeof COUNTRY>,
     cspNonce? : string,
-    merchantID? : $ReadOnlyArray<string>
+    merchantID? : $ReadOnlyArray<string>,
+    isCardFieldsEnabled? : boolean
 |};
 
-export function setupButton({ fundingEligibility, buyerCountry: buyerGeoCountry, cspNonce: serverCSPNonce, merchantID: serverMerchantID } : ButtonOpts) : ZalgoPromise<void> {
+export function setupButton({ fundingEligibility, buyerCountry: buyerGeoCountry, cspNonce: serverCSPNonce, merchantID: serverMerchantID, isCardFieldsEnabled } : ButtonOpts) : ZalgoPromise<void> {
     if (!window.paypal) {
         throw new Error(`PayPal library not loaded`);
     }
@@ -104,7 +105,7 @@ export function setupButton({ fundingEligibility, buyerCountry: buyerGeoCountry,
                     });
                 }
 
-                if (isCardFields) {
+                if (isCardFields && isCardFieldsEnabled) {
                     return initCardFields({
                         buttonSessionID, fundingSource, card, buyerCountry, createOrder, onApprove, onCancel,
                         onAuth, onShippingChange, cspNonce, locale, commit, onError, vault,

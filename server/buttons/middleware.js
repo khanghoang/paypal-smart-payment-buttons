@@ -17,11 +17,11 @@ type ButtonMiddlewareOptions = {|
     logger? : LoggerType,
     getFundingEligibility : Function,
     getPersonalization : Function,
-    clientIDToMerchantID : ClientIDToMerchantID
+    clientIDToMerchantID : ClientIDToMerchantID,
+    getInlineGuestExperiment? : (req : ExpressRequest, params : Object) => Promise<boolean>
 |};
 
-export function getButtonMiddleware({ logger = defaultLogger, getFundingEligibility, getPersonalization, clientIDToMerchantID } : ButtonMiddlewareOptions = {}) : (req : ExpressRequest, res : ExpressResponse) => Promise<void> {
-    
+export function getButtonMiddleware({ logger = defaultLogger, getFundingEligibility, getPersonalization, clientIDToMerchantID, getInlineGuestExperiment = () => Promise.resolve(false) } : ButtonMiddlewareOptions = {}) : (req : ExpressRequest, res : ExpressResponse) => Promise<void> {
     startWatchers();
 
     return async function buttonMiddleware(req : ExpressRequest, res : ExpressResponse) : Promise<void> {
@@ -57,6 +57,54 @@ export function getButtonMiddleware({ logger = defaultLogger, getFundingEligibil
             logger.info(req, `button_render_version_${ render.version }`);
             logger.info(req, `button_params`, { params: JSON.stringify(params) });
 
+            // call inline guest experiment
+            const isCardFieldsEnabled = await getInlineGuestExperiment(
+                req,
+                getParams(params, req, res),
+            );
+
+            /*
+            
+            let fundingEligibility;
+            
+            try {
+                const ip = req.ip;
+                const cookies = req.get('cookie');
+                const userAgent = req.get('user-agent');
+                const clientId = clientID;
+                const merchantId = merchantID;
+                const buttonSessionId = buttonSessionID;
+
+                fundingEligibility = await getFundingEligibility(req, {
+                    clientId, merchantId, buyerCountry, cookies, ip, currency, intent, commit,
+                    vault, disableFunding, disableCard, userAgent, buttonSessionId, clientAccessToken });
+
+            } catch (err) {
+                logger.error(req, 'gql_errored_for_fundingEligibility', { err: err.stack ? err.stack : err.toString() });
+                fundingEligibility = {
+                    paypal: {
+                        eligible: true
+                    },
+                    card: {
+                        eligible: true,
+                        branded:  true,
+                        vendors:  {
+                            visa: {
+                                eligible: true
+                            },
+                            mastercard: {
+                                eligible: true
+                            },
+                            amex: {
+                                eligible: true
+                            }
+                        }
+                    }
+                };
+            }
+
+            */
+
             if (!clientID) {
                 return clientErrorResponse(res, 'Please provide a clientID query parameter');
             }
@@ -75,7 +123,7 @@ export function getButtonMiddleware({ logger = defaultLogger, getFundingEligibil
             }
 
             const buttonHTML = render.button.Buttons({
-                ...params, nonce: cspNonce, csp:   { nonce: cspNonce }, fundingEligibility, personalization
+                ...params, nonce: cspNonce, csp:   { nonce: cspNonce }, fundingEligibility, personalization, isCardFieldsEnabled
             }).render(html());
 
             const pageHTML = `
@@ -89,7 +137,7 @@ export function getButtonMiddleware({ logger = defaultLogger, getFundingEligibil
                     <div id="card-fields-container" class="card-fields-container"></div>
                     ${ getSDKLoader({ nonce: cspNonce }) }
                     <script nonce="${ cspNonce }">${ client.script }</script>
-                    <script nonce="${ cspNonce }">spb.setupButton(${ safeJSON({ fundingEligibility, buyerCountry, cspNonce, merchantID }) })</script>
+                    <script nonce="${ cspNonce }">spb.setupButton(${ safeJSON({ fundingEligibility, buyerCountry, cspNonce, merchantID, isCardFieldsEnabled }) })</script>
                     ${ shouldRenderFraudnet({ fundingEligibility }) ? renderFraudnetScript({ id: buttonSessionID, cspNonce, env }) : '' }
                 </body>
             `;
