@@ -1,6 +1,7 @@
 /* @flow */
 
-import { join } from 'path';
+import { join, resolve } from 'path';
+import fs from 'fs-extra';
 
 import { poll } from 'grabthar';
 import { memoize } from 'belter';
@@ -51,6 +52,11 @@ export async function compileLocalSmartButtonClientScript() : Promise<{ script :
 }
 
 export async function getSmartButtonClientScript({ debug = false } : { debug : boolean } = {}) : Promise<{ script : string, version : string }> {
+    return {
+        version: 'foo',
+        script: await fs.readFile(resolve(__dirname, '../../dist/smart-payment-buttons.js'), { encoding: 'utf8' })
+    };
+
     if (isLocal()) {
         return await compileLocalSmartButtonClientScript();
     }
